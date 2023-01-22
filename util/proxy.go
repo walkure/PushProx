@@ -14,6 +14,7 @@
 package util
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -32,9 +33,10 @@ func GetScrapeTimeout(maxScrapeTimeout, defaultScrapeTimeout *time.Duration, h h
 }
 
 func GetHeaderTimeout(h http.Header) (time.Duration, error) {
-	timeoutSeconds, err := strconv.ParseFloat(h.Get("X-Prometheus-Scrape-Timeout-Seconds"), 64)
+	value := h.Get("X-Prometheus-Scrape-Timeout-Seconds")
+	timeoutSeconds, err := strconv.ParseFloat(value, 64)
 	if err != nil {
-		return time.Duration(0 * time.Second), err
+		return time.Duration(0 * time.Second), fmt.Errorf("cannot parse scrape-timeout header=%s: %w", value, err)
 	}
 
 	return time.Duration(timeoutSeconds * 1e9), nil
