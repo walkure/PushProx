@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: ['linux']
+        os: ['linux','windows']
         arch: ['amd64','arm']
     steps:
       - name: Checkout
@@ -25,16 +25,16 @@ jobs:
         env:
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
-        run : |
-          go build -o pushprox-client
+        run : >
+          go build -o pushprox-client$([ "$GOOS" = "windows" ] && echo ".exe")
            -ldflags "-X main.version=$(git describe --tags --abbrev=0) -X main.commit=$(git rev-parse --short HEAD)"
            ./cmd/client/main.go
       - name: Build Proxy
         env:
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
-        run : |
-          go build -o pushprox-proxy 
+        run : >
+          go build -o pushprox-proxy$([ "$GOOS" = "windows" ] && echo ".exe")
            -ldflags "-X main.version=$(git describe --tags --abbrev=0) -X main.commit=$(git rev-parse --short HEAD)"
            ./cmd/proxy/main.go ./cmd/proxy/coordinator.go
       - name: Create Package
