@@ -1,0 +1,34 @@
+name: release
+on:
+  push:
+    tags:
+    - "v*"
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: ['linux']
+        arch: ['amd64']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+        with:
+          fetch-depth: 1
+      - name: Setup Go
+        uses: actions/setup-go@v1
+        with:
+          go-version-file: ./go.mod
+          cache: true
+      - run: go mod download
+      - name: Build Client
+        run : GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch}} go build -o pushprox-client .\cmd\client\main.go
+      - name: Build Proxy
+        run : GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch}} go build -o pushprox-proxy .\cmd\proxy\main.go .\cmd\proxy\go 
+      - name: Create Package
+        run: tar czvf pushprox-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz ./pushprox-client ./pushprox-proxy
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: pushprox-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+
