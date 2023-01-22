@@ -24,8 +24,8 @@ jobs:
       - name: Set Output filenames
         id: binnames
         run: |
-          echo proxy=pushprox-proxy$([ "$GOOS" = "windows" ] && echo ".exe") >> $GITHUB_OUTPUT
-          echo client=pushprox-client$([ "$GOOS" = "windows" ] && echo ".exe") >> $GITHUB_OUTPUT
+          echo proxy=pushprox-proxy$([ "${{ matrix.os }}" = "windows" ] && echo ".exe") >> $GITHUB_OUTPUT
+          echo client=pushprox-client$([ "${{ matrix.os }}" = "windows" ] && echo ".exe") >> $GITHUB_OUTPUT
       - name: Build Client
         env:
           GOOS: ${{ matrix.os }}
