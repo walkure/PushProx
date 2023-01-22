@@ -25,7 +25,7 @@ jobs:
         env:
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
-        run : >-
+        run : 
           go build -o pushprox-client$([ "$GOOS" = "windows" ] && echo ".exe")
            -ldflags "-X main.version=$(git describe --tags --abbrev=0) -X main.commit=$(git rev-parse --short HEAD)"
            ./cmd/client/main.go
@@ -33,7 +33,7 @@ jobs:
         env:
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
-        run : >-
+        run : 
           go build -o pushprox-proxy$([ "$GOOS" = "windows" ] && echo ".exe")
            -ldflags "-X main.version=$(git describe --tags --abbrev=0) -X main.commit=$(git rev-parse --short HEAD)"
            ./cmd/proxy/main.go ./cmd/proxy/coordinator.go
