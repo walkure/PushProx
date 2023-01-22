@@ -43,12 +43,13 @@ import (
 )
 
 var (
-	myFqdn      = kingpin.Flag("fqdn", "FQDN to register with").Default(fqdn.Get()).String()
-	proxyURL    = kingpin.Flag("proxy-url", "Push proxy to talk to.").Required().String()
-	caCertFile  = kingpin.Flag("tls.cacert", "<file> CA certificate to verify peer against").String()
-	tlsCert     = kingpin.Flag("tls.cert", "<cert> Client certificate file").String()
-	tlsKey      = kingpin.Flag("tls.key", "<key> Private key file").String()
-	metricsAddr = kingpin.Flag("metrics-addr", "Serve Prometheus metrics at this address").Default(":9369").String()
+	myFqdn         = kingpin.Flag("fqdn", "FQDN to register with").Default(fqdn.Get()).String()
+	proxyURL       = kingpin.Flag("proxy-url", "Push proxy to talk to.").Required().String()
+	caCertFile     = kingpin.Flag("tls.cacert", "<file> CA certificate to verify peer against").String()
+	tlsCert        = kingpin.Flag("tls.cert", "<cert> Client certificate file").String()
+	tlsKey         = kingpin.Flag("tls.key", "<key> Private key file").String()
+	metricsAddr    = kingpin.Flag("metrics-addr", "Serve Prometheus metrics at this address").Default(":9369").String()
+	pollingTimeout = kingpin.Flag("polling.timeout", "Maximun amount of time to wait request from scraper(0 = infinity)").Default("0s").Duration()
 
 	retryInitialWait = kingpin.Flag("proxy.retry.initial-wait", "Amount of time to wait after proxy failure").Default("1s").Duration()
 	retryMaxWait     = kingpin.Flag("proxy.retry.max-wait", "Maximum amount of time to wait between proxy poll retries").Default("5s").Duration()
@@ -192,8 +193,22 @@ func (c *Coordinator) doPoll(client *http.Client) error {
 		level.Error(c.logger).Log("msg", "Error parsing url:", "err", err)
 		return errors.Wrap(err, "error parsing url poll")
 	}
+
+	ctx := context.Background()
+	if *pollingTimeout > 0 {
+		timeoutCtx, cancelFunc := context.WithTimeout(ctx, *pollingTimeout)
+		defer cancelFunc()
+		ctx = timeoutCtx
+	}
+
 	url := base.ResolveReference(u)
-	resp, err := client.Post(url.String(), "", strings.NewReader(*myFqdn))
+	req, err := http.NewRequestWithContext(ctx, "POST", url.String(), strings.NewReader(*myFqdn))
+	if err != nil {
+		level.Error(c.logger).Log("msg", "Error polling request:", "err", err)
+		return errors.Wrap(err, "error polling request")
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		level.Error(c.logger).Log("msg", "Error polling:", "err", err)
 		return errors.Wrap(err, "error polling")
