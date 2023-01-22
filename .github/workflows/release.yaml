@@ -1,0 +1,53 @@
+name: release
+on:
+  push:
+    tags:
+    - "v*"
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: ['linux','windows']
+        arch: ['amd64','arm']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+        with:
+          fetch-depth: 1
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: ./go.mod
+          cache: true
+      - run: go mod download
+      - name: Set Output filenames
+        id: binnames
+        run: |
+          echo proxy=pushprox-proxy$([ "${{ matrix.os }}" = "windows" ] && echo ".exe") >> $GITHUB_OUTPUT
+          echo client=pushprox-client$([ "${{ matrix.os }}" = "windows" ] && echo ".exe") >> $GITHUB_OUTPUT
+      - name: Build Client
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+        run : 
+          go build -o ${{ steps.binnames.outputs.client }}
+           -ldflags "-X main.version=$(git describe --tags --abbrev=0) -X main.commit=$(git rev-parse --short HEAD)"
+           ./cmd/client/main.go
+      - name: Build Proxy
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+        run : 
+          go build -o ${{ steps.binnames.outputs.proxy }}
+           -ldflags "-X main.version=$(git describe --tags --abbrev=0) -X main.commit=$(git rev-parse --short HEAD)"
+           ./cmd/proxy/main.go ./cmd/proxy/coordinator.go
+      - name: Create Package
+        run: 
+          tar czvf pushprox-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+          ${{ steps.binnames.outputs.client }} ${{ steps.binnames.outputs.proxy }}
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: pushprox-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+

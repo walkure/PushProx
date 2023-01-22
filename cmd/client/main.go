@@ -55,6 +55,11 @@ var (
 )
 
 var (
+	version = "unknown"
+	commit  = "unknown"
+)
+
+var (
 	scrapeErrorCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: "pushprox_client_scrape_errors_total",
@@ -77,6 +82,7 @@ var (
 
 func init() {
 	prometheus.MustRegister(pushErrorCounter, pollErrorCounter, scrapeErrorCounter)
+	kingpin.Version(version + "." + commit)
 }
 
 func newBackOffFromFlags() backoff.BackOff {
