@@ -4,7 +4,7 @@ on:
     tags:
     - "v*"
 jobs:
-  goreleaser:
+  build-release:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -25,12 +25,18 @@ jobs:
         env:
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
-        run : go build -o pushprox-client ./cmd/client/main.go
+        run : |
+          go build -o pushprox-client
+           -ldflags "-X main.version=$(git describe --tags --abbrev=0) -X main.revision=$(git rev-parse --short HEAD)"
+           ./cmd/client/main.go
       - name: Build Proxy
         env:
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
-        run : go build -o pushprox-proxy ./cmd/proxy/main.go ./cmd/proxy/coordinator.go
+        run : |
+          go build -o pushprox-proxy 
+           -ldflags "-X main.version=$(git describe --tags --abbrev=0) -X main.revision=$(git rev-parse --short HEAD)"
+           ./cmd/proxy/main.go ./cmd/proxy/coordinator.go
       - name: Create Package
         run: tar czvf pushprox-${{ github.ref_name }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz ./pushprox-client ./pushprox-proxy
       - name: Release

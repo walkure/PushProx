@@ -43,6 +43,11 @@ import (
 )
 
 var (
+	version = "unknown"
+	commit  = "unknown"
+)
+
+var (
 	myFqdn         = kingpin.Flag("fqdn", "FQDN to register with").Default(fqdn.Get()).String()
 	proxyURL       = kingpin.Flag("proxy-url", "Push proxy to talk to.").Required().String()
 	caCertFile     = kingpin.Flag("tls.cacert", "<file> CA certificate to verify peer against").String()
@@ -78,6 +83,7 @@ var (
 
 func init() {
 	prometheus.MustRegister(pushErrorCounter, pollErrorCounter, scrapeErrorCounter)
+	kingpin.Version(version + "." + commit)
 }
 
 func newBackOffFromFlags() backoff.BackOff {
