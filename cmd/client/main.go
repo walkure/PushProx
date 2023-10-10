@@ -20,6 +20,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -145,6 +146,7 @@ func (c *Coordinator) doScrape(request *http.Request, client *http.Client) {
 		c.handleErr(request, client, errors.Wrap(err, msg))
 		return
 	}
+	defer scrapeResp.Body.Close()
 
 	logger = log.With(logger, "scrape", request.URL.String())
 
@@ -184,9 +186,13 @@ func (c *Coordinator) doPush(resp *http.Response, origRequest *http.Request, cli
 		ContentLength: int64(buf.Len()),
 	}
 	request = request.WithContext(origRequest.Context())
-	if _, err = client.Do(request); err != nil {
+	if resp, err = client.Do(request); err != nil {
 		return err
 	}
+	defer func() {
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
+	}()
 	return nil
 }
 
