@@ -145,6 +145,9 @@ func (c *Coordinator) doScrape(request *http.Request, client *http.Client) {
 		c.handleErr(request, client, errors.Wrap(err, msg))
 		return
 	}
+
+	logger = log.With(logger, "scrape", request.URL.String())
+
 	level.Info(logger).Log("msg", "Retrieved scrape response")
 	if err = c.doPush(scrapeResp, request, client); err != nil {
 		pushErrorCounter.Inc()
