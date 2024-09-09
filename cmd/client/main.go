@@ -141,6 +141,7 @@ func (c *Coordinator) doScrape(request *http.Request, client *http.Client) {
 		return
 	}
 
+	now := time.Now()
 	scrapeResp, err := client.Do(request)
 	if err != nil {
 		msg := fmt.Sprintf("failed to scrape %s", request.URL.String())
@@ -151,7 +152,7 @@ func (c *Coordinator) doScrape(request *http.Request, client *http.Client) {
 
 	logger = log.With(logger, "scrape", request.URL.String())
 
-	level.Info(logger).Log("msg", "Retrieved scrape response")
+	level.Info(logger).Log("msg", "Retrieved scrape response","elapsed",time.Since(now))
 	if err = c.doPush(scrapeResp, request, client); err != nil {
 		pushErrorCounter.Inc()
 		level.Warn(logger).Log("msg", "Failed to push scrape response:", "err", err)

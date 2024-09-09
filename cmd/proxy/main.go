@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
@@ -181,15 +182,18 @@ func (h *httpHandler) handleProxy(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	request := r.WithContext(ctx)
 	request.RequestURI = ""
+	now := time.Now()
 
 	resp, err := h.coordinator.DoScrape(ctx, request)
 	if err != nil {
-		level.Error(h.logger).Log("msg", "Error scraping:", "err", err, "url", request.URL.String())
+		level.Error(h.logger).Log("msg", "Error scraping:", "err", err, "url", request.URL.String(),"elapsed",time.Since(now))
 		http.Error(w, fmt.Sprintf("Error scraping %q: %s", request.URL.String(), err.Error()), 500)
 		return
 	}
 	defer resp.Body.Close()
 	copyHTTPResponse(resp, w)
+	level.Info(h.logger).Log("msg","Scraped response written","url",request.URL.String(),"elapsed",time.Since(now))
+	
 }
 
 // ServeHTTP discriminates between proxy requests (e.g. from Prometheus) and other requests (e.g. from the Client).
