@@ -19,9 +19,9 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -29,13 +29,11 @@ import (
 	"strings"
 	"time"
 
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
-
 	"github.com/Showmax/go-fqdn"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/pkg/errors"
 	"github.com/prometheus-community/pushprox/util"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -106,7 +104,7 @@ func (c *Coordinator) handleErr(request *http.Request, client *http.Client, err 
 	scrapeErrorCounter.Inc()
 	resp := &http.Response{
 		StatusCode: http.StatusInternalServerError,
-		Body:       ioutil.NopCloser(strings.NewReader(err.Error())),
+		Body:       io.NopCloser(strings.NewReader(err.Error())),
 		Header:     http.Header{},
 	}
 	if err = c.doPush(resp, request, client); err != nil {
@@ -144,8 +142,7 @@ func (c *Coordinator) doScrape(request *http.Request, client *http.Client) {
 	now := time.Now()
 	scrapeResp, err := client.Do(request)
 	if err != nil {
-		msg := fmt.Sprintf("failed to scrape %s", request.URL.String())
-		c.handleErr(request, client, errors.Wrap(err, msg))
+		c.handleErr(request, client, fmt.Errorf("failed to scrape %s: %w", request.URL.String(), err))
 		return
 	}
 	defer scrapeResp.Body.Close()
@@ -184,7 +181,7 @@ func (c *Coordinator) doPush(resp *http.Response, origRequest *http.Request, cli
 	request := &http.Request{
 		Method:        "POST",
 		URL:           url,
-		Body:          ioutil.NopCloser(buf),
+		Body:          io.NopCloser(buf),
 		ContentLength: int64(buf.Len()),
 	}
 	request = request.WithContext(origRequest.Context())
@@ -192,7 +189,7 @@ func (c *Coordinator) doPush(resp *http.Response, origRequest *http.Request, cli
 		return err
 	}
 	defer func() {
-		io.Copy(ioutil.Discard, resp.Body)
+		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 	}()
 	return nil
@@ -202,18 +199,18 @@ func (c *Coordinator) doPoll(client *http.Client) error {
 	base, err := url.Parse(*proxyURL)
 	if err != nil {
 		level.Error(c.logger).Log("msg", "Error parsing url:", "err", err)
-		return errors.Wrap(err, "error parsing url")
+		return fmt.Errorf("error parsing url: %w", err)
 	}
 	u, err := url.Parse("poll")
 	if err != nil {
 		level.Error(c.logger).Log("msg", "Error parsing url:", "err", err)
-		return errors.Wrap(err, "error parsing url poll")
+		return fmt.Errorf("error parsing url poll: %w", err)
 	}
 	url := base.ResolveReference(u)
 	resp, err := client.Post(url.String(), "", strings.NewReader(*myFqdn))
 	if err != nil {
 		level.Error(c.logger).Log("msg", "Error polling:", "err", err)
-		return errors.Wrap(err, "error polling")
+		return fmt.Errorf("error polling: %w", err)
 	}
 	defer resp.Body.Close()
 	
@@ -230,7 +227,7 @@ func (c *Coordinator) doPoll(client *http.Client) error {
 	request, err := http.ReadRequest(bufio.NewReader(resp.Body))
 	if err != nil {
 		level.Error(c.logger).Log("msg", "Error reading request:", "err", err)
-		return errors.Wrap(err, "error reading request")
+		return fmt.Errorf("error reading request: %w", err)
 	}
 	level.Info(c.logger).Log("msg", "Got scrape request", "scrape_id", request.Header.Get("id"), "url", request.URL)
 
@@ -281,12 +278,10 @@ func main() {
 
 		// Setup HTTPS client
 		tlsConfig.Certificates = []tls.Certificate{cert}
-
-		tlsConfig.BuildNameToCertificate()
 	}
 
 	if *caCertFile != "" {
-		caCert, err := ioutil.ReadFile(*caCertFile)
+		caCert, err := os.ReadFile(*caCertFile)
 		if err != nil {
 			level.Error(coordinator.logger).Log("msg", "Not able to read cacert file", "err", err)
 			os.Exit(1)
