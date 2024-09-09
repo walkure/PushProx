@@ -53,6 +53,7 @@ var (
 
 	retryInitialWait = kingpin.Flag("proxy.retry.initial-wait", "Amount of time to wait after proxy failure").Default("1s").Duration()
 	retryMaxWait     = kingpin.Flag("proxy.retry.max-wait", "Maximum amount of time to wait between proxy poll retries").Default("5s").Duration()
+	pollingTimeout = kingpin.Flag("polling.timeout","If non-zero,set the maximum amount of time to wait for a scraping request").Default("0s").Duration()
 )
 
 var (
@@ -312,7 +313,7 @@ func main() {
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-		ResponseHeaderTimeout: 10 * time.Second,
+		ResponseHeaderTimeout: *pollingTimeout,
 		TLSClientConfig:       tlsConfig,
 	}
 
