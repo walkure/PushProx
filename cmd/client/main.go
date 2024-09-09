@@ -216,6 +216,11 @@ func (c *Coordinator) doPoll(client *http.Client) error {
 		return errors.Wrap(err, "error polling")
 	}
 	defer resp.Body.Close()
+	
+	if resp.StatusCode == http.StatusRequestTimeout {
+		level.Info(c.logger).Log("msg", "Polling discarded")
+		return nil
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		level.Warn(c.logger).Log("msg", "Unexpected response", "statusCode", resp.StatusCode)
