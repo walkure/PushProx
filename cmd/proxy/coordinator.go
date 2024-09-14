@@ -116,7 +116,7 @@ func (c *Coordinator) DoScrape(ctx context.Context, r *http.Request) (*http.Resp
 	r.Header.Add("Id", id)
 	select {
 	case <-ctx.Done():
-		return nil, fmt.Errorf("Timeout reached for %q: %s", r.URL.String(), ctx.Err())
+		return nil, fmt.Errorf("Request Timeout reached for %q(id:%s): %w", r.URL.String(), id, ctx.Err())
 	case c.getRequestChannel(r.URL.Hostname()) <- r:
 	}
 
@@ -124,8 +124,10 @@ func (c *Coordinator) DoScrape(ctx context.Context, r *http.Request) (*http.Resp
 	defer c.removeResponseChannel(id)
 
 	select {
+	case <-r.Context().Done():
+		return nil, fmt.Errorf("Scrape timeout reached for %q(id:%s): %w", r.URL.String(), id, r.Context().Err())
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, fmt.Errorf("Response timeout reached for %q(id:%s): %w", r.URL.String(), id, ctx.Err())
 	case resp := <-respCh:
 		return resp, nil
 	}
