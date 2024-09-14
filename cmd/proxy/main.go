@@ -135,7 +135,7 @@ func (h *httpHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 	scrapeResult, err := http.ReadResponse(bufio.NewReader(buf), nil)
 	if err != nil {
 		level.Error(h.logger).Log("msg", "Error reading pushed response:", "err", err)
-		http.Error(w, fmt.Sprintf("Error pushing: %s", err.Error()), 500)
+		http.Error(w, fmt.Sprintf("Error pushing: %s", err.Error()), http.StatusInternalServerError)
 		return
 	}
 	scrapeId := scrapeResult.Header.Get("Id")
@@ -143,7 +143,7 @@ func (h *httpHandler) handlePush(w http.ResponseWriter, r *http.Request) {
 	err = h.coordinator.ScrapeResult(scrapeResult)
 	if err != nil {
 		level.Error(h.logger).Log("msg", "Error pushing:", "err", err, "scrape_id", scrapeId)
-		http.Error(w, fmt.Sprintf("Error pushing: %s", err.Error()), 500)
+		http.Error(w, fmt.Sprintf("Error pushing: %s", err.Error()), http.StatusInternalServerError)
 	}
 }
 
@@ -153,7 +153,7 @@ func (h *httpHandler) handlePoll(w http.ResponseWriter, r *http.Request) {
 	request, err := h.coordinator.WaitForScrapeInstruction(strings.TrimSpace(string(fqdn)))
 	if err != nil {
 		level.Info(h.logger).Log("msg", "Error WaitForScrapeInstruction:", "err", err)
-		http.Error(w, fmt.Sprintf("Error WaitForScrapeInstruction: %s", err.Error()), 408)
+		http.Error(w, fmt.Sprintf("Error WaitForScrapeInstruction: %s", err.Error()), http.StatusRequestTimeout)
 		return
 	}
 	//nolint:errcheck // https://github.com/prometheus-community/PushProx/issues/111
@@ -185,7 +185,7 @@ func (h *httpHandler) handleProxy(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.coordinator.DoScrape(ctx, request)
 	if err != nil {
 		level.Error(h.logger).Log("msg", "Error scraping:", "err", err, "url", request.URL.String(),"elapsed",time.Since(now))
-		http.Error(w, fmt.Sprintf("Error scraping %q: %s", request.URL.String(), err.Error()), 500)
+		http.Error(w, fmt.Sprintf("Error scraping %q: %s", request.URL.String(), err.Error()), http.StatusInternalServerError)
 		return
 	}
 	defer resp.Body.Close()
