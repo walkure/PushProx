@@ -16,7 +16,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -134,7 +136,12 @@ func (c *Coordinator) DoScrape(ctx context.Context, r *http.Request) (*http.Resp
 }
 
 // WaitForScrapeInstruction registers a client waiting for a scrape result
-func (c *Coordinator) WaitForScrapeInstruction(fqdn string) (*http.Request, error) {
+func (c *Coordinator) WaitForScrapeInstruction(poll *http.Request) (*http.Request, error) {
+	fqdnBytes, err := io.ReadAll(poll.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failure to receive poll request:%w", err)
+	}
+	fqdn := strings.TrimSpace(string(fqdnBytes))
 	level.Info(c.logger).Log("msg", "WaitForScrapeInstruction", "fqdn", fqdn)
 
 	c.addKnownClient(fqdn)
@@ -149,17 +156,36 @@ func (c *Coordinator) WaitForScrapeInstruction(fqdn string) (*http.Request, erro
 		break
 	}
 
-	for {
-		request := <-ch
-		if request == nil {
-			return nil, fmt.Errorf("request is expired")
+	ctx := poll.Context()
+	if timeout := poll.Header.Get("X-PushProx-Polling-Timeout"); timeout != "" {
+		tmDuration, err := time.ParseDuration(timeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid polling timeout value:%w", err)
 		}
+		newCtx, cancel := context.WithTimeout(ctx, tmDuration)
+		ctx = newCtx
+		defer cancel()
+	}
 
+	for {
 		select {
-		case <-request.Context().Done():
-			// Request has timed out, get another one.
-		default:
-			return request, nil
+		case request := <-ch:
+			if request == nil {
+				return nil, fmt.Errorf("request is expired")
+			}
+
+			select {
+			case <-request.Context().Done():
+				level.Warn(c.logger).Log("msg", "request is timeout", "err", request.Context().Err())
+				// Request has timed out, get another one.
+			case <-ctx.Done():
+				return nil, fmt.Errorf("polling timeout: %w", ctx.Err())
+			default:
+				return request, nil
+			}
+
+		case <-ctx.Done():
+			return nil, fmt.Errorf("request polling timeout: %w", ctx.Err())
 		}
 	}
 }

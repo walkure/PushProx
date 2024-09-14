@@ -207,7 +207,15 @@ func (c *Coordinator) doPoll(client *http.Client) error {
 		return fmt.Errorf("error parsing url poll: %w", err)
 	}
 	url := base.ResolveReference(u)
-	resp, err := client.Post(url.String(), "", strings.NewReader(*myFqdn))
+	req, err := http.NewRequest(http.MethodPost,url.String(), strings.NewReader(*myFqdn))
+	if err != nil {
+		level.Error(c.logger).Log("msg", "Error polling request building:", "err", err)
+		return fmt.Errorf("error polling request building: %w", err)
+	}
+	if *pollingTimeout > 0 {
+		req.Header.Add("X-PushProx-Polling-Timeout",(*pollingTimeout).String())
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		level.Error(c.logger).Log("msg", "Error polling:", "err", err)
 		return fmt.Errorf("error polling: %w", err)
