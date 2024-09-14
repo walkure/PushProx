@@ -156,9 +156,13 @@ func (h *httpHandler) handlePoll(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Error WaitForScrapeInstruction: %s", err.Error()), http.StatusRequestTimeout)
 		return
 	}
-	//nolint:errcheck // https://github.com/prometheus-community/PushProx/issues/111
-	request.WriteProxy(w) // Send full request as the body of the response.
-	level.Info(h.logger).Log("msg", "Responded to /poll", "url", request.URL.String(), "scrape_id", request.Header.Get("Id"))
+
+	if err := request.WriteProxy(w); err != nil { // Send full request as the body of the response.
+		level.Warn(h.logger).Log("msg", "Failed respond to /poll", "url", request.URL.String(), "scrape_id", request.Header.Get("Id"),
+			"err", err)
+	} else {
+		level.Info(h.logger).Log("msg", "Responded to /poll", "url", request.URL.String(), "scrape_id", request.Header.Get("Id"))
+	}
 }
 
 // handleListClients handles requests to list available clients as a JSON array.
